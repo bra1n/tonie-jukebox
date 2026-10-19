@@ -13,7 +13,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "update-yt-dlp": "npm rebuild youtube-dl-exec --ignore-scripts=false"
+    "update-yt-dlp": "npm rebuild youtube-dl-exec --ignore-scripts=false",
+    "test": "node --test",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"*.js\" --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=70"
   },
   "dependencies": {
     "express": "^5.3.0",

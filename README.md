@@ -63,3 +63,16 @@ npm run update-yt-dlp
 - `server.js`: Express server with `/api/account`, `/api/search` and `/api/upload`. It is
   stateless: every request logs in to tonie.cloud again and the temp MP3 is deleted afterwards.
 - `public/index.html`: the web UI (vanilla HTML/JS)
+
+## Tests
+
+Unit tests use Node's built-in test runner (`node:test`), so there are no extra dependencies.
+All YouTube and tonie.cloud calls are replaced with fakes; the tests never touch the network.
+
+```sh
+npm test           # run all tests
+npm run coverage   # run tests with a coverage report (fails below 80% lines / functions)
+```
+
+There is one test file per module in `test/`. GitHub Actions runs `npm run coverage` on every push
+and pull request (`.github/workflows/test.yml`).
