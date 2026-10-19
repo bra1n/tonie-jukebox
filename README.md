@@ -74,6 +74,7 @@ All YouTube and tonie.cloud calls are replaced with fakes; the tests never touch
 ```sh
 npm test           # run all tests
 npm run coverage   # run tests with a coverage report (fails below 80% lines / functions)
+npm run lint       # check the code with ESLint (any error or warning fails)
 ```
 
 There is one test file per module in `test/`. GitHub Actions runs `npm run coverage` on every push

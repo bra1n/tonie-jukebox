@@ -4,16 +4,32 @@ const express = require('express');
 const { YouTube } = require('./youtube');
 const { TonieCloud } = require('./tonie');
 
-// Express app with all routes; the YouTube and TonieCloud instances are injected (fakes in tests)
+/**
+ * Creates the Express app: the web UI from `public/` plus the JSON API.
+ * Errors from any route are logged and returned as `{ error: message }` with status 500.
+ * @param {object} deps - the YouTube and TonieCloud instances to use; tests pass fakes here
+ * @param {YouTube} deps.youtube
+ * @param {TonieCloud} deps.tonieCloud
+ * @returns {import('express').Express}
+ */
 function createApp({ youtube, tonieCloud }) {
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(__dirname, 'public')));
 
+  /**
+   * GET /api/account
+   * Responds with the logged-in user and their creative tonies (see `Account` in tonie.js).
+   */
   app.get('/api/account', async (req, res) => {
     res.json(await tonieCloud.getAccount());
   });
 
+  /**
+   * GET /api/search?q=<term>&page=<n>
+   * Responds with one page of YouTube results (see `SearchResult` in youtube.js).
+   * Invalid page numbers fall back to 1. Responds 400 if the search term is missing.
+   */
   app.get('/api/search', async (req, res) => {
     const query = String(req.query.q || '').trim();
     if (!query) return res.status(400).json({ error: 'Please enter a search term.' });
@@ -21,6 +37,12 @@ function createApp({ youtube, tonieCloud }) {
     res.json(await youtube.search(query, page));
   });
 
+  /**
+   * POST /api/upload
+   * JSON body: `{ videoId, title, householdId, tonieId, deleteOldest? }`
+   * Downloads the video's audio as MP3, uploads it to the tonie and removes the temp files.
+   * Responds with `{ message }` for the UI, or 400 if a required field is missing.
+   */
   app.post('/api/upload', async (req, res) => {
     const { videoId, title, householdId, tonieId, deleteOldest } = req.body || {};
     if (!videoId || !title || !householdId || !tonieId) {
@@ -50,6 +72,7 @@ function createApp({ youtube, tonieCloud }) {
     res.json({ message });
   });
 
+  /** Error handler: logs the error and returns its message as JSON, so the UI can show it. */
   app.use((err, req, res, next) => {
     console.error(`${req.method} ${req.originalUrl} failed:`, err);
     res.status(500).json({ error: err.message });
@@ -58,6 +81,12 @@ function createApp({ youtube, tonieCloud }) {
   return app;
 }
 
+/**
+ * Starts the server: reads the tonies.com login from `.env` or the environment,
+ * checks the login by loading the creative tonies, and then listens on `PORT` (default 3000).
+ * @returns {Promise<void>}
+ * @throws {Error} if the credentials are missing or wrong, or the account has no creative tonies
+ */
 async function start() {
   // Load TONIE_EMAIL / TONIE_PASSWORD / PORT from .env (variables already set in the environment win)
   try {

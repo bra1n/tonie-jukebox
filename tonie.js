@@ -1,18 +1,53 @@
 const fs = require('node:fs');
 
+/** OpenID Connect token endpoint of the tonies.com login. */
 const LOGIN_URL = 'https://login.tonies.com/auth/realms/tonies/protocol/openid-connect/token';
+/** Base URL of the (unofficial) tonie.cloud REST API. */
 const API_URL = 'https://api.tonie.cloud/v2';
 
+/**
+ * A creative tonie as returned by {@link TonieCloud#getAccount}.
+ * @typedef {object} Tonie
+ * @property {string} id
+ * @property {string} householdId - household the tonie belongs to; needed for all tonie API calls
+ * @property {string} name
+ * @property {string} imageUrl
+ * @property {number} chaptersPresent - number of tracks on the tonie
+ * @property {number} chaptersRemaining - number of free track slots
+ * @property {number} secondsRemaining - free recording time in seconds
+ * @property {{ title: string, seconds: number }|null} oldestTrack - the last track (new songs are added
+ *   on top, so the last one is the oldest), or null if the tonie is empty
+ */
+
+/**
+ * The logged-in user and their creative tonies.
+ * @typedef {object} Account
+ * @property {{ email: string, name: string }} user - name may be empty
+ * @property {Tonie[]} tonies - creative tonies across all households
+ */
+
+/**
+ * Client for the tonie.cloud API: reading creative tonies and uploading songs to them.
+ */
 class TonieCloud {
-  // `fetch` is injectable for tests
+  /**
+   * @param {object} options
+   * @param {string} options.email - tonies.com account email
+   * @param {string} options.password - tonies.com account password
+   * @param {typeof globalThis.fetch} [options.fetch] - fetch implementation; tests pass a fake here
+   */
   constructor({ email, password, fetch = globalThis.fetch }) {
     this.email = email;
     this.password = password;
     this.fetch = fetch;
   }
 
-  // Exchange email / password for an access token.
-  // Every public method logs in again, so nothing needs to be kept between requests.
+  /**
+   * Exchanges email and password for an access token.
+   * Every public method logs in again, so nothing needs to be kept between requests.
+   * @returns {Promise<string>} access token for the `Authorization: Bearer` header
+   * @throws {Error} with the server's response, e.g. on wrong credentials
+   */
   async login() {
     const res = await this.fetch(LOGIN_URL, {
       method: 'POST',
@@ -31,7 +66,15 @@ class TonieCloud {
     return access_token;
   }
 
-  // Authenticated JSON request against the tonie.cloud API
+  /**
+   * Sends an authenticated JSON request to the tonie.cloud API.
+   * @param {string} token - access token from {@link TonieCloud#login}
+   * @param {'GET'|'POST'|'PATCH'} method
+   * @param {string} urlPath - path below {@link API_URL}, e.g. "/households"
+   * @param {object} [body] - sent as JSON
+   * @returns {Promise<any>} parsed JSON response, or null for an empty response
+   * @throws {Error} with method, path, HTTP status and response body if the request fails
+   */
   async api(token, method, urlPath, body) {
     const res = await this.fetch(API_URL + urlPath, {
       method,
@@ -48,7 +91,10 @@ class TonieCloud {
     return text ? JSON.parse(text) : null;
   }
 
-  // Logged-in user and all creative tonies across all households
+  /**
+   * Loads the logged-in user and all creative tonies across all of their households.
+   * @returns {Promise<Account>}
+   */
   async getAccount() {
     const token = await this.login();
     const [user, households] = await Promise.all([
@@ -80,8 +126,21 @@ class TonieCloud {
     };
   }
 
-  // Upload an audio file and put it at the top of the creative tonie's playlist,
-  // optionally deleting the oldest (= last) chapter first to make room
+  /**
+   * Uploads an audio file and puts it at the top of a creative tonie's playlist.
+   *
+   * Steps: upload the file to tonie.cloud's storage, optionally delete the oldest (= last) track,
+   * add the new track (tonie.cloud appends it at the end), then move it to the top and save the playlist.
+   * @param {object} options
+   * @param {string} options.householdId
+   * @param {string} options.tonieId
+   * @param {string} options.filePath - local audio file to upload
+   * @param {string} options.title - track title, shortened to 100 characters
+   * @param {boolean} [options.deleteOldest=false] - delete the last track first to make room
+   * @returns {Promise<{ tonieName: string, chapterCount: number, deleted: string|null }>}
+   *   tonie name, number of tracks afterwards, and the title of the deleted track (if any)
+   * @throws {Error} if a parameter is missing or any request fails
+   */
   async uploadSong({ householdId, tonieId, filePath, title, deleteOldest = false } = {}) {
     if (!householdId || !tonieId || !filePath || !title) {
       throw new Error('householdId, tonieId, filePath and title are required.');
