@@ -78,7 +78,7 @@ npm run update-yt-dlp
   so the last track is the oldest.
 - `server.js`: Express server with `/api/account`, `/api/search` and `/api/upload`. It is
   stateless: every request logs in to tonie.cloud again and the temp MP3 is deleted afterwards.
-- `public/index.html`: the web UI (vanilla HTML/JS)
+- `public/`: the web UI (vanilla HTML/CSS/JS): `index.html` markup, `style.css` styles, `app.js` logic
 
 ## Tests
 

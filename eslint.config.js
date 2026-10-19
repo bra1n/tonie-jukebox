@@ -17,4 +17,12 @@ module.exports = [
       'no-var': 'error',
     },
   },
+  {
+    // the web UI runs in the browser as a classic script
+    files: ['public/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: globals.browser,
+    },
+  },
 ];
