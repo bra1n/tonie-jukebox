@@ -147,3 +147,49 @@ describe('server API', () => {
     });
   });
 });
+
+describe('server API with HTTP Basic Auth', () => {
+  const tonieCloud = { getAccount: async () => ({ user: { email: 'me@example.com' }, tonies: [] }) };
+  let server;
+  let baseUrl;
+
+  const basic = (credentials) => ({ Authorization: `Basic ${Buffer.from(credentials).toString('base64')}` });
+
+  before(async () => {
+    server = createApp({ youtube: {}, tonieCloud, auth: { user: 'parent', password: 's3cr:et' } }).listen(0, '127.0.0.1');
+    await new Promise((resolve) => server.once('listening', resolve));
+    baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  after(() => server.close());
+
+  it('asks for credentials when none are sent', async () => {
+    for (const urlPath of ['/', '/api/account']) {
+      const res = await fetch(baseUrl + urlPath);
+      assert.equal(res.status, 401);
+      assert.match(res.headers.get('www-authenticate'), /^Basic realm="Tonie Jukebox"/);
+    }
+  });
+
+  it('rejects wrong or malformed credentials', async () => {
+    const wrong = [
+      basic('parent:wrong'),
+      basic('someone:s3cr:et'),
+      basic('parent'), // no separator
+      { Authorization: 'Bearer abc' },
+      { Authorization: 'Basic' },
+    ];
+    for (const headers of wrong) {
+      assert.equal((await fetch(`${baseUrl}/api/account`, { headers })).status, 401);
+    }
+  });
+
+  it('allows requests with the right credentials', async () => {
+    // the password contains a colon: only the first colon separates user and password
+    const headers = basic('parent:s3cr:et');
+    assert.equal((await fetch(`${baseUrl}/api/account`, { headers })).status, 200);
+    const page = await fetch(`${baseUrl}/`, { headers });
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /Tonie Jukebox/);
+  });
+});

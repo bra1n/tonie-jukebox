@@ -44,6 +44,16 @@ Variables that are already set in the environment take precedence over `.env`.
 | `TONIE_EMAIL`    | tonies.com account email (required) |
 | `TONIE_PASSWORD` | tonies.com password (required)      |
 | `PORT`           | HTTP port, default `3000`           |
+| `AUTH_USER`      | Basic Auth user name (optional)     |
+| `AUTH_PASSWORD`  | Basic Auth password (optional)      |
+
+### Running on a public server
+
+Set `AUTH_USER` and `AUTH_PASSWORD` to protect the page and the API with HTTP Basic Auth. The
+browser then asks for the login once. If only one of the two is set, the server refuses to start.
+
+Basic Auth sends the password in plain text with every request, so on a public server always put
+the app behind HTTPS, e.g. a reverse proxy like Caddy or nginx with a Let's Encrypt certificate.
 
 On startup the server logs in and lists your creative tonies; if that fails it exits.
 Then open <http://localhost:3000>.
