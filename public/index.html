@@ -253,6 +253,12 @@
   <ul id="results" data-empty="Search for a song, then tap a result to select it."></ul>
 
   <script>
+    // API URLs are relative so the app also works in a reverse-proxy sub-directory (e.g. /jukebox/).
+    // Opened as "/jukebox" without the trailing slash, they would resolve to "/api/...", so add it.
+    if (!location.pathname.endsWith('/') && !location.pathname.endsWith('.html')) {
+      history.replaceState(null, '', `${location.pathname}/${location.search}${location.hash}`);
+    }
+
     const $ = (id) => document.getElementById(id);
     const MARGIN_SECONDS = 10;
     const EMPTY_HINT = $('results').dataset.empty;
@@ -327,7 +333,7 @@
     // Account info + creative tonie selection (keeps the current selection when reloading)
     async function loadAccount() {
       try {
-        const account = await request('/api/account');
+        const account = await request('api/account');
         const { user } = account;
         tonies = account.tonies;
         $('account').textContent = `Logged in as ${user.name ? `${user.name} (${user.email})` : user.email}`;
@@ -433,7 +439,7 @@
       setStatus(page > 1 ? `Loading page ${page}…` : 'Searching…');
       try {
         const params = new URLSearchParams({ q: currentQuery, page });
-        const { videos, hasNext } = await request(`/api/search?${params}`);
+        const { videos, hasNext } = await request(`api/search?${params}`);
         const items = videos.map(renderVideo);
         if (page > 1 || hasNext) items.push(renderPager(page, hasNext));
         $('results').replaceChildren(...items);
@@ -466,7 +472,7 @@
       updateControls();
       setStatus(`Adding “${video.dataset.title}” to the tonie. This can take a minute.`);
       try {
-        const { message } = await request('/api/upload', {
+        const { message } = await request('api/upload', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

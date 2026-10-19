@@ -55,6 +55,10 @@ browser then asks for the login once. If only one of the two is set, the server 
 Basic Auth sends the password in plain text with every request, so on a public server always put
 the app behind HTTPS, e.g. a reverse proxy like Caddy or nginx with a Let's Encrypt certificate.
 
+The app can also live in a sub-directory of your domain (e.g. `https://example.com/jukebox/`), as
+long as the proxy strips that prefix before forwarding, e.g. with nginx:
+`location /jukebox/ { proxy_pass http://localhost:3000/; }` (note the trailing slashes).
+
 On startup the server logs in and lists your creative tonies; if that fails it exits.
 Then open <http://localhost:3000>.
 
