@@ -24,12 +24,13 @@ const MAX_DURATION = 10 * 60;
  * @property {string} durationString - length formatted as "m:ss" or "h:mm:ss"
  * @property {number|null} viewCount - null if YouTube doesn't report it
  * @property {string} thumbnail - URL of a preview image
+ * @property {boolean} tooLong - longer than {@link MAX_DURATION}; shown in the results but can't be added
  */
 
 /**
  * One page of search results.
  * @typedef {object} SearchResult
- * @property {Video[]} videos - can be fewer than {@link PAGE_SIZE}, since long videos are filtered out
+ * @property {Video[]} videos - can be fewer than {@link PAGE_SIZE}, since channels and live streams are filtered out
  * @property {number} page - the page number actually used (after clamping)
  * @property {boolean} hasNext - whether a next page is likely to exist
  */
@@ -80,8 +81,8 @@ class YouTube {
 
   /**
    * Searches YouTube one page at a time, using yt-dlp's "ytsearchN:" pseudo-URL.
-   * Videos longer than {@link MAX_DURATION}, live streams and channels are filtered out,
-   * so a page can contain fewer than {@link PAGE_SIZE} videos.
+   * Live streams and channels are filtered out, so a page can contain fewer than {@link PAGE_SIZE} videos.
+   * Videos longer than {@link MAX_DURATION} stay in the results but are marked as `tooLong`.
    * @param {string} query - search term
    * @param {number} [page=1] - 1-based page number, clamped to 1…{@link MAX_PAGES}
    * @returns {Promise<SearchResult>}
@@ -102,7 +103,6 @@ class YouTube {
     const entries = result.entries || [];
     const videos = entries
       .filter((entry) => VIDEO_ID.test(entry.id) && entry.duration) // skip channels, playlists and live streams
-      .filter((entry) => entry.duration <= MAX_DURATION)
       .map((entry) => ({
         id: entry.id,
         title: entry.title,
@@ -112,6 +112,7 @@ class YouTube {
         durationString: formatDuration(entry.duration),
         viewCount: entry.view_count ?? null,
         thumbnail: entry.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${entry.id}/mqdefault.jpg`,
+        tooLong: entry.duration > MAX_DURATION,
       }));
     return { videos, page, hasNext: entries.length === PAGE_SIZE && page < MAX_PAGES };
   }

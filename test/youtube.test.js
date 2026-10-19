@@ -36,10 +36,11 @@ describe('YouTube', () => {
         durationString: '3:34',
         viewCount: 1234,
         thumbnail: 'https://i.ytimg.com/vi/dQw4w9WgXcQ/small.jpg',
+        tooLong: false,
       }]);
     });
 
-    it('filters out videos longer than 10 minutes, live streams and non-videos', async () => {
+    it('marks videos longer than 10 minutes and filters out live streams and non-videos', async () => {
       const exec = async () => ({
         entries: [
           entry(id(1), MAX_DURATION), // exactly 10 minutes is allowed
@@ -51,7 +52,10 @@ describe('YouTube', () => {
       });
       const { videos } = await new YouTube({ exec }).search('test');
 
-      assert.deepEqual(videos.map((v) => v.id), [id(1)]);
+      assert.deepEqual(
+        videos.map((v) => [v.id, v.tooLong]),
+        [[id(1), false], [id(2), true], [id(3), true]],
+      );
     });
 
     it('fills in defaults for missing optional fields', async () => {

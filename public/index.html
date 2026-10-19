@@ -193,6 +193,18 @@
     .description { -webkit-line-clamp: 2; font-size: 0.8rem; color: var(--ink-soft); }
     .video:has(input:checked) .meta, .video:has(input:checked) .description { color: var(--ink); }
 
+    /* Videos over 10 minutes are listed but can't be selected */
+    .video.too-long { cursor: not-allowed; }
+    .video.too-long .thumb, .video.too-long .info { opacity: 0.45; }
+    .video.too-long .duration { background: var(--error); }
+    .too-long-label {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--error);
+    }
+
     .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; }
     .pager span { color: var(--ink-soft); font-size: 0.9rem; }
     .pager .button:disabled { visibility: hidden; }
@@ -386,6 +398,14 @@
       li.querySelector('.channel').textContent = video.channel;
       li.querySelector('.views').textContent = formatViews(video.viewCount);
       li.querySelector('.description').textContent = video.description;
+      if (video.tooLong) {
+        radio.disabled = true;
+        li.querySelector('.video').classList.add('too-long');
+        const label = document.createElement('p');
+        label.className = 'too-long-label';
+        label.textContent = 'Too long to add (max. 10 minutes)';
+        li.querySelector('.video').append(label);
+      }
       return li;
     }
 
@@ -418,7 +438,7 @@
         if (page > 1 || hasNext) items.push(renderPager(page, hasNext));
         $('results').replaceChildren(...items);
         $('results').scrollTop = 0;
-        setStatus(videos.length ? '' : `No songs up to 10 minutes on this page. ${hasNext ? 'Try the next page or a' : 'Try a'} different search term.`);
+        setStatus(videos.length ? '' : 'No results found. Try a different search term.');
       } catch (err) {
         setStatus(err.message, 'error');
       }
