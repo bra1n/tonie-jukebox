@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1d2a44">
+  <title>Tonie Jukebox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&display=swap">
+  <style>
+    :root {
+      --ink: #1d2a44;
+      --ink-soft: #5b6782;
+      --paper: #eef3f8;
+      --card: #ffffff;
+      --sun: #ffd447;
+      --line: #d5deea;
+      --error: #c62839;
+      --error-bg: #fde8eb;
+      --warn: #8a5300;
+      --warn-bg: #fff1d6;
+      --ok: #1e7d4f;
+      --ok-bg: #ddf5e8;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { height: 100%; margin: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      font: 16px/1.4 Nunito, system-ui, sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    button, input, select { font: inherit; color: inherit; }
+
+    :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+    /* Header with burger menu */
+    header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      padding-top: max(8px, env(safe-area-inset-top));
+      background: var(--ink);
+      color: #fff;
+    }
+    h1 { margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
+    #target { margin: 0; font-size: 0.8rem; opacity: 0.8; }
+
+    .menu > summary {
+      list-style: none;
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .menu > summary::-webkit-details-marker { display: none; }
+    .menu[open] > summary { background: rgba(255, 255, 255, 0.15); }
+    .menu-panel {
+      position: absolute;
+      z-index: 10;
+      top: 100%;
+      left: 8px;
+      right: 8px;
+      padding: 16px;
+      border-radius: 0 0 var(--radius) var(--radius);
+      background: var(--card);
+      color: var(--ink);
+      box-shadow: 0 12px 24px rgba(29, 42, 68, 0.25);
+    }
+    .menu-panel p { margin: 0 0 12px; }
+    .menu-panel label { display: block; font-weight: 600; }
+    .menu-panel select { display: block; width: 100%; margin-top: 4px; padding: 10px; border: 2px solid var(--line); border-radius: 10px; background: #fff; }
+
+    /* Fixed controls: search, options, messages */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .search { display: flex; gap: 8px; }
+    .search input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 14px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: var(--card);
+    }
+    .search input:focus { border-color: var(--ink); outline: none; }
+
+    .button {
+      padding: 10px 18px;
+      border: 0;
+      border-radius: 999px;
+      background: var(--ink);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .button:disabled { background: var(--line); color: var(--ink-soft); cursor: not-allowed; }
+    .button.primary:not(:disabled) { background: var(--sun); color: var(--ink); }
+
+    .options { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .options label { display: flex; align-items: center; gap: 8px; }
+    .options input { width: 20px; height: 20px; accent-color: var(--ink); }
+    .options label:has(input:disabled) { color: var(--ink-soft); }
+
+    .message:empty { display: none; }
+    .message {
+      margin: 0;
+      max-height: 30dvh;
+      overflow-y: auto;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: var(--card);
+    }
+    .message.notice { background: var(--warn-bg); color: var(--warn); }
+    .message.error { background: var(--error-bg); color: var(--error); }
+    .message.success { background: var(--ok-bg); color: var(--ok); font-size: 1.1rem; font-weight: 800; }
+
+    /* Independently scrolling result list */
+    #results {
+      flex: 1;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      margin: 0;
+      padding: 8px 12px max(12px, env(safe-area-inset-bottom));
+      list-style: none;
+    }
+    #results[data-empty]:empty::before {
+      content: attr(data-empty);
+      display: block;
+      padding: 32px 16px;
+      text-align: center;
+      color: var(--ink-soft);
+    }
+    #results li + li { margin-top: 8px; }
+
+    .video {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 10px;
+      padding: 8px;
+      border: 2px solid transparent;
+      border-radius: var(--radius);
+      background: var(--card);
+      cursor: pointer;
+    }
+    .video:has(input:checked) { background: var(--sun); border-color: var(--ink); }
+    .video:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 2px; }
+    .video input { position: absolute; opacity: 0; pointer-events: none; }
+
+    .thumb { position: relative; align-self: start; }
+    .thumb img { display: block; width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--line); }
+    .duration {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      padding: 0 5px;
+      border-radius: 4px;
+      background: rgba(29, 42, 68, 0.85);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .info { min-width: 0; }
+    .title, .description {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin: 0;
+    }
+    .title { -webkit-line-clamp: 2; font-weight: 800; line-height: 1.2; }
+    .meta { display: flex; flex-wrap: wrap; column-gap: 10px; margin: 2px 0; font-size: 0.8rem; color: var(--ink-soft); }
+    .description { -webkit-line-clamp: 2; font-size: 0.8rem; color: var(--ink-soft); }
+    .video:has(input:checked) .meta, .video:has(input:checked) .description { color: var(--ink); }
+
+    .pager { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; }
+    .pager span { color: var(--ink-soft); font-size: 0.9rem; }
+    .pager .button:disabled { visibility: hidden; }
+
+    @media (min-width: 700px) {
+      body { max-width: 700px; margin: 0 auto; box-shadow: 0 0 0 1px var(--line); }
+      .video { grid-template-columns: 168px 1fr; }
+      .thumb img { width: 168px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <details class="menu" id="menu">
+      <summary aria-label="Account and tonie">
+        <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true">
+          <path d="M3 5h16M3 11h16M3 17h16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </summary>
+      <div class="menu-panel">
+        <p id="account">Loading account…</p>
+        <label>Add songs to
+          <select id="tonie"></select>
+        </label>
+      </div>
+    </details>
+    <div>
+      <h1>Tonie Jukebox</h1>
+      <p id="target"></p>
+    </div>
+  </header>
+
+  <div class="controls">
+    <form class="search" id="search-form" role="search">
+      <input type="search" id="query" placeholder="Search YouTube" aria-label="Search YouTube" required disabled>
+      <button type="submit" class="button" id="search-button" disabled>Search</button>
+    </form>
+    <div class="options">
+      <label><input type="checkbox" id="delete-oldest"> Delete oldest song</label>
+      <button type="button" class="button primary" id="upload-button" disabled>Add to tonie</button>
+    </div>
+    <p class="message" id="space-notice"></p>
+    <p class="message" id="status" role="status"></p>
+  </div>
+
+  <ul id="results" data-empty="Search for a song, then tap a result to select it."></ul>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const MARGIN_SECONDS = 10;
+    const EMPTY_HINT = $('results').dataset.empty;
+    let busy = false;
+    let tonies = [];
+    let userWantsDelete = false; // the user's own checkbox choice, restored when deletion is no longer forced
+    let selectedRadio = null; // to allow unselecting a video by tapping it again
+
+    function setStatus(text, type = '') {
+      $('status').textContent = text;
+      $('status').className = `message ${type}`;
+    }
+
+    async function request(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({ error: `HTTP ${res.status} ${res.statusText}` }));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    function selectedTonie() {
+      return tonies.find((t) => t.id === $('tonie').value);
+    }
+
+    // Does the selected video fit on the selected tonie? Returns { forceDelete, blocked, message }
+    function checkSpace(tonie, video) {
+      if (!tonie || !video) return {};
+      const needed = Number(video.dataset.duration) + MARGIN_SECONDS;
+      if (needed <= tonie.secondsRemaining && tonie.chaptersRemaining > 0) return {};
+
+      const oldest = tonie.oldestTrack;
+      const left = `Only ${formatDuration(tonie.secondsRemaining)} and ${tonie.chaptersRemaining} track slot(s) left on ${tonie.name}`;
+      if (oldest && needed <= tonie.secondsRemaining + oldest.seconds) {
+        return {
+          forceDelete: true,
+          message: `${left}. The oldest track “${oldest.title}” (${formatDuration(oldest.seconds)}) will be deleted to make room.`,
+        };
+      }
+      if (!oldest) {
+        return { blocked: true, message: `${left}, which is too short for this ${formatDuration(video.dataset.duration)} video.` };
+      }
+      return {
+        blocked: true,
+        message: `${left}, and deleting only the oldest track won't free up enough space for this ` +
+          `${formatDuration(video.dataset.duration)} video. Please delete more than one track from the tonie manually first.`,
+      };
+    }
+
+    function updateControls() {
+      const tonie = selectedTonie();
+      const video = document.querySelector('input[name="video"]:checked');
+      const space = checkSpace(tonie, video);
+
+      $('target').textContent = tonie ? `Adding to ${tonie.name}, ${formatDuration(tonie.secondsRemaining)} left` : 'Choose a tonie in the menu';
+      $('query').disabled = $('search-button').disabled = busy || !tonie;
+      $('delete-oldest').checked = space.forceDelete || userWantsDelete;
+      $('delete-oldest').disabled = busy || Boolean(space.forceDelete);
+      $('upload-button').disabled = busy || !tonie || !video || Boolean(space.blocked);
+      $('space-notice').textContent = space.message || '';
+      $('space-notice').className = `message ${space.blocked ? 'error' : 'notice'}`;
+    }
+
+    function formatViews(count) {
+      return count == null ? '' : new Intl.NumberFormat('en', { notation: 'compact' }).format(count) + ' views';
+    }
+
+    function formatDuration(seconds) {
+      seconds = Math.max(0, Math.floor(seconds));
+      return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    }
+
+    // Account info + creative tonie selection (keeps the current selection when reloading)
+    async function loadAccount() {
+      try {
+        const account = await request('/api/account');
+        const { user } = account;
+        tonies = account.tonies;
+        $('account').textContent = `Logged in as ${user.name ? `${user.name} (${user.email})` : user.email}`;
+        const select = $('tonie');
+        const selected = select.value;
+        select.replaceChildren();
+        if (tonies.length > 1) select.add(new Option('Please choose a tonie', ''));
+        for (const tonie of tonies) {
+          const label = `${tonie.name} (${tonie.chaptersPresent} tracks, ${formatDuration(tonie.secondsRemaining)} left)`;
+          const option = new Option(label, tonie.id, false, tonie.id === selected);
+          option.dataset.householdId = tonie.householdId;
+          select.add(option);
+        }
+        select.disabled = tonies.length === 1;
+        if (!select.value) $('menu').open = true; // a tonie must be chosen before searching
+      } catch (err) {
+        $('account').textContent = 'Could not load account.';
+        setStatus(err.message, 'error');
+      }
+      updateControls();
+    }
+
+    // Burger menu: close after choosing a tonie or when tapping outside
+    $('tonie').addEventListener('change', () => {
+      if ($('tonie').value) $('menu').open = false;
+      updateControls();
+    });
+    document.addEventListener('click', (event) => {
+      if (selectedTonie() && !$('menu').contains(event.target)) $('menu').open = false;
+    });
+
+    $('delete-oldest').addEventListener('change', (event) => {
+      userWantsDelete = event.target.checked;
+      updateControls();
+    });
+
+    // Radio list that can be unselected by tapping the selected video again
+    $('results').addEventListener('click', (event) => {
+      if (event.target.name !== 'video') return;
+      if (event.target === selectedRadio) {
+        event.target.checked = false;
+        selectedRadio = null;
+      } else {
+        selectedRadio = event.target;
+      }
+      updateControls();
+    });
+
+    function renderVideo(video) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <label class="video">
+          <input type="radio" name="video">
+          <span class="thumb"><img alt="" loading="lazy"><span class="duration"></span></span>
+          <span class="info">
+            <p class="title"></p>
+            <p class="meta"><span class="channel"></span><span class="views"></span></p>
+            <p class="description"></p>
+          </span>
+        </label>`;
+      const radio = li.querySelector('input');
+      radio.value = video.id;
+      radio.dataset.title = video.title;
+      radio.dataset.duration = video.duration;
+      li.querySelector('img').src = video.thumbnail;
+      li.querySelector('.duration').textContent = video.durationString;
+      li.querySelector('.title').textContent = video.title;
+      li.querySelector('.channel').textContent = video.channel;
+      li.querySelector('.views').textContent = formatViews(video.viewCount);
+      li.querySelector('.description').textContent = video.description;
+      return li;
+    }
+
+    function renderPager(page, hasNext) {
+      const li = document.createElement('li');
+      li.className = 'pager';
+      li.innerHTML = `
+        <button type="button" class="button" data-page="${page - 1}">Previous page</button>
+        <span>Page ${page}</span>
+        <button type="button" class="button" data-page="${page + 1}">Next page</button>`;
+      li.querySelector('button').disabled = page <= 1;
+      li.querySelector('button:last-child').disabled = !hasNext;
+      return li;
+    }
+
+    // YouTube search, one page at a time
+    let currentQuery = '';
+
+    async function search(page) {
+      busy = true;
+      selectedRadio = null;
+      $('results').replaceChildren();
+      delete $('results').dataset.empty; // the hint is only for before the first search
+      updateControls();
+      setStatus(page > 1 ? `Loading page ${page}…` : 'Searching…');
+      try {
+        const params = new URLSearchParams({ q: currentQuery, page });
+        const { videos, hasNext } = await request(`/api/search?${params}`);
+        const items = videos.map(renderVideo);
+        if (page > 1 || hasNext) items.push(renderPager(page, hasNext));
+        $('results').replaceChildren(...items);
+        $('results').scrollTop = 0;
+        setStatus(videos.length ? '' : `No songs up to 10 minutes on this page. ${hasNext ? 'Try the next page or a' : 'Try a'} different search term.`);
+      } catch (err) {
+        setStatus(err.message, 'error');
+      }
+      busy = false;
+      updateControls();
+    }
+
+    $('search-form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      $('query').blur(); // hide the on-screen keyboard to reveal the results
+      currentQuery = $('query').value;
+      search(1);
+    });
+
+    $('results').addEventListener('click', (event) => {
+      const page = event.target.closest('.pager button')?.dataset.page;
+      if (page && !busy) search(Number(page));
+    });
+
+    // Download + upload to the tonie
+    $('upload-button').addEventListener('click', async () => {
+      const video = document.querySelector('input[name="video"]:checked');
+      const tonie = $('tonie').selectedOptions[0];
+      busy = true;
+      updateControls();
+      setStatus(`Adding “${video.dataset.title}” to the tonie. This can take a minute.`);
+      try {
+        const { message } = await request('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            videoId: video.value,
+            title: video.dataset.title,
+            householdId: tonie.dataset.householdId,
+            tonieId: tonie.value,
+            deleteOldest: $('delete-oldest').checked,
+          }),
+        });
+        // Reset for the next song and refresh the tonie's remaining time / slots
+        $('results').replaceChildren();
+        $('results').dataset.empty = EMPTY_HINT;
+        selectedRadio = null;
+        $('query').value = '';
+        userWantsDelete = false;
+        setStatus(`✔ ${message}`, 'success');
+        await loadAccount();
+      } catch (err) {
+        setStatus(err.message, 'error');
+      }
+      busy = false;
+      updateControls();
+    });
+
+    loadAccount();
+  </script>
+</body>
+</html>
