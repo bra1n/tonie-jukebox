@@ -15,4 +15,11 @@ jobs:
           cache: npm
       # yt-dlp and ffmpeg binaries aren't needed: all YouTube / tonie.cloud calls are mocked
       - run: npm ci --ignore-scripts
-      - run: npm run coverage
+      # print the results to the log and also write an lcov report for the summary below
+      - run: >-
+          npm run coverage --
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=lcov --test-reporter-destination=lcov.info
+      # show the coverage table on the run's summary page, also when the tests failed
+      - if: always()
+        run: node scripts/coverage-summary.js lcov.info >> "$GITHUB_STEP_SUMMARY"

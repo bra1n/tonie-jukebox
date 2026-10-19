@@ -1,5 +1,7 @@
 # Tonie Jukebox
 
+[![Tests](https://github.com/bra1n/tonie-jukebox/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/bra1n/tonie-jukebox/actions/workflows/test.yml)
+
 A small Node.js server with a plain web page: search YouTube, pick a video, and its audio is
 uploaded as MP3 to one of your **creative tonies** via the (unofficial) tonie.cloud API.
 
@@ -75,4 +77,5 @@ npm run coverage   # run tests with a coverage report (fails below 80% lines / f
 ```
 
 There is one test file per module in `test/`. GitHub Actions runs `npm run coverage` on every push
-and pull request (`.github/workflows/test.yml`).
+and pull request (`.github/workflows/test.yml`), and adds a coverage table per file to the
+summary page of each run (Actions tab, then click on a run).
