@@ -46,6 +46,7 @@ Variables that are already set in the environment take precedence over `.env`.
 | `PORT`           | HTTP port, default `3000`           |
 | `AUTH_USER`      | Basic Auth user name (optional)     |
 | `AUTH_PASSWORD`  | Basic Auth password (optional)      |
+| `YTDLP_COOKIES`  | YouTube cookies file (optional)     |
 
 ### Running on a public server
 
@@ -61,6 +62,25 @@ long as the proxy strips that prefix before forwarding, e.g. with nginx:
 
 On startup the server logs in and lists your creative tonies; if that fails it exits.
 Then open <http://localhost:3000>.
+
+### YouTube asks to "sign in to confirm you're not a bot"
+
+YouTube blocks many VPS and datacenter IP ranges, so on a hosted server downloads can fail with
+`HTTP Error 429` and `Sign in to confirm you're not a bot`, even on the very first request.
+Searching usually keeps working. To fix this, give yt-dlp the cookies of a logged-in YouTube session:
+
+1. Open a private browser window and log in to YouTube, ideally with a throwaway Google account,
+   since YouTube may flag accounts used this way.
+2. Export the youtube.com cookies in Netscape format (e.g. with a "cookies.txt" browser extension),
+   then close the private window, so the browser doesn't rotate the exported cookies.
+3. Copy the file to the server and set `YTDLP_COOKIES` to its path, e.g. `YTDLP_COOKIES=cookies.txt`.
+   yt-dlp writes refreshed cookies back to the file, so it must be writable by the server.
+
+The cookies grant access to that Google account, so keep the file private (e.g. `chmod 600`).
+See the [yt-dlp FAQ](https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies) for details.
+
+yt-dlp also needs a JavaScript runtime for YouTube. The server passes its own Node.js to yt-dlp,
+so nothing extra has to be installed.
 
 ## Keeping yt-dlp up to date
 

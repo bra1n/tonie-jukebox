@@ -168,6 +168,26 @@ describe('YouTube', () => {
     });
   });
 
+  describe('common yt-dlp flags', () => {
+    it('uses the running Node.js as JavaScript runtime and no cookies by default', async () => {
+      const exec = mock.fn(async () => ({ entries: [] }));
+      await new YouTube({ exec }).search('test');
+
+      const [, flags] = exec.mock.calls[0].arguments;
+      assert.equal(flags.jsRuntimes, `node:${process.execPath}`);
+      assert.equal('cookies' in flags, false);
+    });
+
+    it('passes the cookies file to searches and downloads', async () => {
+      const exec = mock.fn(async () => { throw new Error('stop here'); });
+      const youtube = new YouTube({ exec, cookiesFile: '/srv/cookies.txt' });
+      await assert.rejects(youtube.search('test'));
+      await assert.rejects(youtube.downloadMp3('dQw4w9WgXcQ'));
+
+      for (const call of exec.mock.calls) assert.equal(call.arguments[1].cookies, '/srv/cookies.txt');
+    });
+  });
+
   describe('formatDuration()', () => {
     it('formats seconds as m:ss or h:mm:ss', () => {
       assert.equal(formatDuration(5), '0:05');

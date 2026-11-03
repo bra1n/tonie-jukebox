@@ -123,9 +123,10 @@ function createApp({ youtube, tonieCloud, auth }) {
  * Starts the server: reads the configuration from `.env` or the environment,
  * checks the tonies.com login by loading the creative tonies, and then listens on `PORT` (default 3000).
  * If `AUTH_USER` and `AUTH_PASSWORD` are set, the page and API are protected with HTTP Basic Auth.
+ * If `YTDLP_COOKIES` is set, yt-dlp uses that cookies file (relative paths start at the project folder).
  * @returns {Promise<void>}
  * @throws {Error} if the tonies.com credentials are missing or wrong, the account has no creative tonies,
- *   or only one of `AUTH_USER` / `AUTH_PASSWORD` is set
+ *   only one of `AUTH_USER` / `AUTH_PASSWORD` is set, or the `YTDLP_COOKIES` file can't be read and written
  */
 async function start() {
   // Load TONIE_EMAIL / TONIE_PASSWORD / PORT from .env (variables already set in the environment win)
@@ -135,7 +136,7 @@ async function start() {
     if (err.code !== 'ENOENT') throw err;
   }
 
-  const { TONIE_EMAIL, TONIE_PASSWORD, AUTH_USER, AUTH_PASSWORD, PORT = 3000 } = process.env;
+  const { TONIE_EMAIL, TONIE_PASSWORD, AUTH_USER, AUTH_PASSWORD, YTDLP_COOKIES, PORT = 3000 } = process.env;
   if (!TONIE_EMAIL || !TONIE_PASSWORD) {
     throw new Error('TONIE_EMAIL and TONIE_PASSWORD environment variables are required.');
   }
@@ -145,6 +146,16 @@ async function start() {
   }
   const auth = AUTH_USER ? { user: AUTH_USER, password: AUTH_PASSWORD } : undefined;
 
+  // yt-dlp writes refreshed cookies back to the file, so it must be writable too
+  const cookiesFile = YTDLP_COOKIES ? path.resolve(__dirname, YTDLP_COOKIES) : undefined;
+  if (cookiesFile) {
+    try {
+      await fs.access(cookiesFile, fs.constants.R_OK | fs.constants.W_OK);
+    } catch (err) {
+      throw new Error(`YTDLP_COOKIES file ${cookiesFile} can't be read and written: ${err.code}`, { cause: err });
+    }
+  }
+
   const tonieCloud = new TonieCloud({ email: TONIE_EMAIL, password: TONIE_PASSWORD });
   const { user, tonies } = await tonieCloud.getAccount();
   if (!tonies.length) throw new Error(`No creative tonies found for ${user.email}.`);
@@ -153,8 +164,9 @@ async function start() {
   for (const t of tonies) console.log(`  - ${t.name} (${t.chaptersPresent} tracks)`);
 
   console.log(auth ? `HTTP Basic Auth is enabled for user "${auth.user}".` : 'HTTP Basic Auth is disabled.');
+  console.log(cookiesFile ? `yt-dlp uses the YouTube cookies in ${cookiesFile}.` : 'yt-dlp runs without YouTube cookies.');
 
-  const app = createApp({ youtube: new YouTube(), tonieCloud, auth });
+  const app = createApp({ youtube: new YouTube({ cookiesFile }), tonieCloud, auth });
   app.listen(PORT, () => console.log(`Tonie Jukebox running at http://localhost:${PORT}`));
 }
 

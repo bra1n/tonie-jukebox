@@ -58,14 +58,19 @@ class YouTube {
    * @param {(url: string, flags: object) => Promise<any>} [options.exec] - runs yt-dlp and resolves with its
    *   parsed output (the youtube-dl-exec signature); tests pass a fake here
    * @param {string} [options.ffmpegPath] - path to the ffmpeg binary used for the MP3 conversion
+   * @param {string} [options.cookiesFile] - Netscape-format YouTube cookies, for servers that YouTube asks to
+   *   "sign in to confirm you're not a bot". yt-dlp also writes updated cookies back to this file.
    */
-  constructor({ exec = youtubedl, ffmpegPath = ffmpegStatic } = {}) {
+  constructor({ exec = youtubedl, ffmpegPath = ffmpegStatic, cookiesFile } = {}) {
     this.exec = exec;
     this.ffmpegPath = ffmpegPath;
+    this.cookiesFile = cookiesFile;
   }
 
   /**
    * Runs yt-dlp and turns failures into errors that carry yt-dlp's own output.
+   * Every call uses the running Node.js as yt-dlp's JavaScript runtime (it only looks for deno by default)
+   * and the cookies file, if one is configured.
    * @param {string} url - video URL or search pseudo-URL such as "ytsearch20:query"
    * @param {object} flags - yt-dlp options in camelCase, e.g. `{ dumpSingleJson: true }`
    * @returns {Promise<any>} parsed JSON for JSON output, otherwise stdout as a string
@@ -73,7 +78,9 @@ class YouTube {
    */
   async ytdlp(url, flags) {
     try {
-      return await this.exec(url, flags);
+      const common = { jsRuntimes: `node:${process.execPath}` };
+      if (this.cookiesFile) common.cookies = this.cookiesFile;
+      return await this.exec(url, { ...common, ...flags });
     } catch (err) {
       throw new Error(`yt-dlp failed: ${(err.stderr || err.message).trim()}`, { cause: err });
     }
