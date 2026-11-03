@@ -178,10 +178,42 @@ function renderPager(page, hasNext) {
   return li;
 }
 
-// YouTube search, one page at a time
+// YouTube search, one page at a time. The query and page live in the URL hash (#q=…&page=…),
+// so the browser's back / forward buttons and reloading show the same results again.
 let currentQuery = '';
+let latestSearch = 0; // to ignore responses of searches that were replaced by a newer one
+let uploading = false; // a search finishing during an upload must not re-enable the controls
+
+function readHash() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  return { query: (params.get('q') || '').trim(), page: Math.max(1, parseInt(params.get('page'), 10) || 1) };
+}
+
+// Adds a history entry for the search; the hashchange listener below then runs it
+function showSearch(query, page) {
+  const current = readHash();
+  if (current.query === query && current.page === page) return searchFromHash(); // same hash: no hashchange event
+  location.hash = new URLSearchParams({ q: query, page });
+}
+
+function searchFromHash() {
+  const { query, page } = readHash();
+  $('query').value = currentQuery = query;
+  if (query) return search(page);
+  // back at the start without a search: show the hint again
+  latestSearch++;
+  $('results').replaceChildren();
+  $('results').dataset.empty = EMPTY_HINT;
+  selectedRadio = null;
+  busy = uploading;
+  setStatus('');
+  updateControls();
+}
+
+window.addEventListener('hashchange', searchFromHash);
 
 async function search(page) {
+  const searchId = ++latestSearch;
   busy = true;
   selectedRadio = null;
   $('results').replaceChildren();
@@ -191,35 +223,36 @@ async function search(page) {
   try {
     const params = new URLSearchParams({ q: currentQuery, page });
     const { videos, hasNext } = await request(`api/search?${params}`);
+    if (searchId !== latestSearch) return;
     const items = videos.map(renderVideo);
     if (page > 1 || hasNext) items.push(renderPager(page, hasNext));
     $('results').replaceChildren(...items);
     $('results').scrollTop = 0;
     setStatus(videos.length ? '' : 'No results found. Try a different search term.');
   } catch (err) {
+    if (searchId !== latestSearch) return;
     setStatus(err.message, 'error');
   }
-  busy = false;
+  busy = uploading;
   updateControls();
 }
 
 $('search-form').addEventListener('submit', (event) => {
   event.preventDefault();
   $('query').blur(); // hide the on-screen keyboard to reveal the results
-  currentQuery = $('query').value;
-  search(1);
+  showSearch($('query').value.trim(), 1);
 });
 
 $('results').addEventListener('click', (event) => {
   const page = event.target.closest('.pager button')?.dataset.page;
-  if (page && !busy) search(Number(page));
+  if (page && !busy) showSearch(currentQuery, Number(page));
 });
 
 // Download + upload to the tonie
 $('upload-button').addEventListener('click', async () => {
   const video = document.querySelector('input[name="video"]:checked');
   const tonie = $('tonie').selectedOptions[0];
-  busy = true;
+  busy = uploading = true;
   updateControls();
   setStatus(`Adding “${video.dataset.title}” to the tonie. This can take a minute.`);
   try {
@@ -234,7 +267,10 @@ $('upload-button').addEventListener('click', async () => {
         deleteOldest: $('delete-oldest').checked,
       }),
     });
-    // Reset for the next song and refresh the tonie's remaining time / slots
+    // Reset for the next song and refresh the tonie's remaining time / slots.
+    // The hash is removed without a history entry, so reloading doesn't bring back the old results.
+    history.replaceState(null, '', location.pathname + location.search);
+    latestSearch++;
     $('results').replaceChildren();
     $('results').dataset.empty = EMPTY_HINT;
     selectedRadio = null;
@@ -245,8 +281,9 @@ $('upload-button').addEventListener('click', async () => {
   } catch (err) {
     setStatus(err.message, 'error');
   }
-  busy = false;
+  busy = uploading = false;
   updateControls();
 });
 
 loadAccount();
+searchFromHash();
