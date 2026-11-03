@@ -157,8 +157,23 @@ h1 { margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.1; }
 .video:has(input:focus-visible) { outline: 3px solid var(--ink); outline-offset: 2px; }
 .video input { position: absolute; opacity: 0; pointer-events: none; }
 
-.thumb { position: relative; align-self: start; }
+.thumb { position: relative; align-self: start; cursor: pointer; }
 .thumb img { display: block; width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--line); }
+/* Play badge: the thumbnail opens the video on YouTube in a new tab */
+.play {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding-left: 2px;
+  border-radius: 50%;
+  background: rgba(29, 42, 68, 0.85);
+  color: #fff;
+}
+.thumb:hover .play { background: var(--error); }
 .duration {
   position: absolute;
   right: 4px;

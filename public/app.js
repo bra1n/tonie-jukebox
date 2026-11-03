@@ -128,7 +128,13 @@ function renderVideo(video) {
   li.innerHTML = `
     <label class="video">
       <input type="radio" name="video">
-      <span class="thumb"><img alt="" loading="lazy"><span class="duration"></span></span>
+      <a class="thumb" target="_blank" rel="noopener noreferrer">
+        <img alt="" loading="lazy">
+        <span class="play" aria-hidden="true">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 1.5v9l7.5-4.5z" fill="currentColor"/></svg>
+        </span>
+        <span class="duration"></span>
+      </a>
       <span class="info">
         <p class="title"></p>
         <p class="meta"><span class="channel"></span><span class="views"></span></p>
@@ -139,6 +145,10 @@ function renderVideo(video) {
   radio.value = video.id;
   radio.dataset.title = video.title;
   radio.dataset.duration = video.duration;
+  // the thumbnail opens the video on YouTube for a preview; a link inside the label doesn't select the radio
+  const thumb = li.querySelector('.thumb');
+  thumb.href = `https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`;
+  thumb.setAttribute('aria-label', `Watch “${video.title}” on YouTube (opens in a new tab)`);
   li.querySelector('img').src = video.thumbnail;
   li.querySelector('.duration').textContent = video.durationString;
   li.querySelector('.title').textContent = video.title;
