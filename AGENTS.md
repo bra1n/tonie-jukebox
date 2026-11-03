@@ -52,6 +52,11 @@ so the yt-dlp and ffmpeg binaries are not available there. Tests must never need
 - **Thumbnail preview link.** Each card is a `<label>` for its radio; the thumbnail is an `<a>` that
   opens the video on YouTube in a new tab. A link inside a label doesn't select the radio, so it
   must stay a real link (don't turn it into a `<span>` with a click handler).
+- **Search state lives in the URL hash** (`#q=<query>&page=<n>`), so back / forward and reload work.
+  New searches and page changes set `location.hash`; the single `hashchange` listener
+  (`searchFromHash()`) runs the search, also on page load. A successful upload removes the hash with
+  `history.replaceState`. Responses of replaced searches are ignored (`latestSearch` counter), and a
+  search finishing during an upload must not clear `busy` (`uploading` flag).
 - **ESLint has two scopes**: Node/CommonJS for the server code, browser globals + `sourceType: script`
   for `public/**/*.js`.
 - **Secrets**: `.env` and `cookies.txt` are gitignored. Never print cookie values or credentials;
@@ -75,6 +80,23 @@ firefox --headless --profile "$(mktemp -d)" --window-size 500,800 --screenshot s
 ```
 
 Log the proxied request paths to confirm `style.css`, `app.js` and `api/...` resolve under `/jukebox/`.
+Firefox's `--screenshot` mode keeps no session history (`history.length` stays 1), so back /
+forward can't be tested there. For those, start `firefox --headless --remote-debugging-port <port>`
+and drive it over WebDriver BiDi with Node's built-in `WebSocket` (`ws://127.0.0.1:<port>/session`):
+`browsingContext.navigate` / `traverseHistory` / `reload`, plus `script.evaluate` with
+`userActivation: true` to fill the form, click and read state. The test proxy must forward the
+request method and body, or `POST api/upload` fails.
+
+**Clean up test servers and browsers.** Background servers and Firefox instances from an earlier run
+can survive `kill $!` and keep their ports. The next harness then dies with `EADDRINUSE`, and the
+browser silently tests the *old* server, which gives believable but wrong results. So:
+- Free the ports before and after every run, e.g. `fuser -k 3910/tcp 3911/tcp 9333/tcp`, and
+  confirm with `ss -ltn` that nothing is still listening.
+- Check the harness log for `EADDRINUSE` (or any startup error) before trusting the results.
+- Give harnesses a self-destruct, e.g. `setTimeout(() => process.exit(), 120000).unref()`, so a
+  forgotten one doesn't outlive the session.
+- Use a fresh `mktemp -d` Firefox profile per run, and keep all of it in a temp directory, not the repo.
+
 For CSS behaviour (e.g. scrolling), a standalone test page that links `public/style.css`, builds the
 markup, and writes measurements such as `window.scrollY` into the page before the screenshot works well.
 
